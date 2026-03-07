@@ -35,3 +35,138 @@ For every step include:
   - `check_ml_data` leaves first column unchanged
 - Remaining uncertainties:
   - Exact parity of R warning vs Python warning/exception semantics.
+
+## Entry 2
+- Date: 2026-03-07
+- Step: Core transforms (`phi`, `dphi`, `complete_observed_frequencies`)
+- Files modified:
+  - `mokken_py/core/transforms.py`
+  - `mokken_py/core/__init__.py`
+  - `tests/test_core_transforms.py`
+- Functions ported:
+  - `phi` (from `R/internalFunctions.R::phi`)
+  - `dphi` (from `R/internalFunctions.R::dphi`)
+  - `complete_observed_frequencies` (from `R/internalFunctions.R::complete.observed.frequencies`)
+- Tests added:
+  - `test_phi_actions_match_expected_numpy_forms`
+  - `test_phi_log_uses_abs_and_eps_for_zero_and_negative_values`
+  - `test_dphi_actions_match_expected_numpy_forms`
+  - `test_dphi_log_preserves_zero_division_edge_case_behavior`
+  - `test_complete_observed_frequencies_counts_patterns`
+  - `test_complete_observed_frequencies_order_items_matches_manual_reorder`
+  - Full suite status after increment: `18 passed, 1 skipped`
+- Edge cases preserved:
+  - `phi(..., action=\"log\")` uses `log(abs(f) + eps)` with `eps=1e-80`
+  - `dphi(..., action=\"log\")` uses `1/(f + eps)` (no `abs`), matching R asymmetry
+  - Elementwise row scaling in `dphi` (`as.numeric(...) * df` semantics)
+  - `complete_observed_frequencies` returns a `(m**J, 1)` matrix
+  - `order_items=True` matches R logic `rev(order(colMeans(data)))`
+- Remaining uncertainties:
+  - Numerical warning behavior for invalid domains (`sqrt` of negative, `log` with negative in xlogx path) follows NumPy defaults and may differ from exact R warning text/format.
+
+## Entry 3
+- Date: 2026-03-07
+- Step: `coefH` Loevinger-H implementation (one-level coefficient path)
+- Files modified:
+  - `mokken_py/core/scalability.py`
+  - `mokken_py/core/__init__.py`
+  - `tests/test_coefh.py`
+- Functions ported:
+  - `coefH` (from `R/coefH.R::coefH`)
+- Tests added:
+  - `test_coefh_fast_path_matches_coefhtiny`
+  - `test_coefh_fixed_itemstep_order_branch_runs_and_returns_shapes`
+  - `test_coefh_unsupported_branches_raise`
+  - `test_coefh_golden_against_r_fast_path` (conditional on `Rscript`)
+  - Full suite status after increment: `21 passed, 2 skipped`
+- Edge cases preserved:
+  - Fast-path behavior for `se=FALSE`, `ci=FALSE`, `fixed.itemstep.order=NULL` matches covariance-ratio `Hij/Hi/H`
+  - Validation and score normalization via existing `check_data`
+  - Zero-variance item stop in non-fast coefficient branch
+  - `fixed.itemstep.order` validation/ignore behavior with warnings
+  - Coefficient branch reuses `weights`, `allPatterns`, `phi`, `dphi`, `complete_observed_frequencies`
+- Remaining uncertainties:
+  - SE/CI branches, `group.var`, and `level.two.var` branches from R `coefH` are not yet ported (currently explicit `NotImplementedError`).
+
+## Entry 4
+- Date: 2026-03-07
+- Step: `coefZ` implementation using Python `coefH`
+- Files modified:
+  - `mokken_py/core/scalability.py`
+  - `mokken_py/core/zscores.py`
+  - `mokken_py/core/__init__.py`
+  - `tests/test_coefh.py`
+  - `tests/test_coefz.py`
+- Functions ported:
+  - `coefZ` (from `R/coefZ.R::coefZ`)
+  - Extended `coefH` one-level SE support needed by `coefZ` WB/RP paths
+- Tests added:
+  - `test_coefh_se_branch_returns_standard_errors`
+  - `test_coefz_classic_z_matches_manual_formula`
+  - `test_coefz_wb_uses_coefh_standard_errors`
+  - `test_coefz_unknown_type_warns_and_switches`
+  - `test_coefz_lowerbound_switches_z_to_wb_with_warning`
+  - `test_coefz_level_two_var_not_implemented`
+  - `test_coefz_golden_against_r_classic_z` (conditional on `Rscript`)
+  - Full suite status after increment: `27 passed, 3 skipped`
+- Edge cases preserved:
+  - `type.z` fallback/switch behavior (`unknown` -> inferred default, `Z` with `lowerbound>0` -> `WB`)
+  - Classical `Z` path formulas for `Zij`, `Zi`, `Z`
+  - WB/RP paths computed from `coefH` coefficients + standard errors
+  - Diagonal handling for pairwise matrices (`diag=0`) after `Zij` computation
+- Remaining uncertainties:
+  - `level.two.var` branch for `coefZ` is not yet ported (explicit `NotImplementedError`).
+  - WB/RP divide-by-zero cases currently surface NumPy runtime warnings (matching numerical edge behavior but warning text differs from R).
+
+## Entry 5
+- Date: 2026-03-07
+- Step: `search.normal` implementation
+- Files modified:
+  - `mokken_py/search/__init__.py`
+  - `mokken_py/search/normal.py`
+  - `tests/test_search_normal.py`
+- Functions ported:
+  - `search_normal` (from `R/search.normal.R::search.normal`)
+- Tests added:
+  - `test_search_normal_returns_matrix_with_expected_shape`
+  - `test_search_normal_finds_single_scale_on_synthetic_data`
+  - `test_search_normal_invalid_startset_warns_and_ignores`
+  - `test_search_normal_raises_when_item_has_no_variance`
+  - `test_search_normal_level_two_ignored_for_type_z`
+  - `test_search_normal_golden_against_r_reference` (conditional on `Rscript`)
+  - Full suite status after increment: `32 passed, 4 skipped`
+- Edge cases preserved:
+  - Start set validation/ignore behavior with warnings
+  - Zero-variance stop behavior
+  - Lower-bound vector handling (multi-column assignment output)
+  - Item selection logic preserving sentinel values (`-99`, `-98`, `-97`) and tie handling for candidate additions
+  - `level.two.var` ignored with warning when `type.z == 'Z'` (as in R)
+- Remaining uncertainties:
+  - `level.two.var` search path for `type.z != 'Z'` is deferred (depends on multilevel `coefZ` branch).
+  - Verbose `cat` output formatting is not replicated exactly (core selection behavior is implemented).
+
+## Entry 6
+- Date: 2026-03-07
+- Step: `aisp` implementation (normal search path)
+- Files modified:
+  - `mokken_py/search/aisp.py`
+  - `mokken_py/search/__init__.py`
+  - `tests/test_aisp.py`
+- Functions ported:
+  - `aisp` (from `R/aisp.R::aisp`)
+- Tests added:
+  - `test_aisp_scalar_and_vector_lowerbound_shapes`
+  - `test_aisp_startset_parameter_runs`
+  - `test_aisp_golden_acl_default_example`
+  - `test_aisp_golden_acl_startset_example`
+  - `test_aisp_golden_acl_lowerbound_sequence_example`
+  - Full suite status after increment: `37 passed, 4 skipped`
+- Edge cases preserved:
+  - `lowerbound` supports scalar or vector input and returns item-by-lowerbound assignment matrix
+  - StartSet pass-through and compatibility with `search_normal`
+  - Validation and lowerbound filtering against `max(Hij)` with warning behavior
+  - Type switching warning (`test.Hi=TRUE` and `type.z='Z'` -> `'WB'`)
+  - Numeric parameter validation for `alpha`, `pxover`, `pmutation`, `popsize`, `maxgens`
+- Remaining uncertainties:
+  - `search='ga'`, `search='extended'`, and `level.two.var` execution paths are not yet ported (explicit `NotImplementedError`).
+  - Known R quirk where alpha/pxover/pmutation warnings do not actually clamp values is mirrored as warning-only behavior.

@@ -326,3 +326,13 @@ Port strategy notes:
 ## Appendix: legacy/commented functions observed
 - `aisp.old`, `check.errors.old`, `search.normal.old`, commented `coefZ.wald`, `coefZ.old`, and older commented `coefHT` variants in `check.iio.R`.
 - Recommended: keep out of first port unless explicit backward-compat requirement.
+
+## Incremental Update (2026-03-07): `aisp`
+- Implemented Python `aisp` normal-search path in `mokken_py/search/aisp.py`, mapped to `R/aisp.R::aisp`.
+- `aisp` now calls `search_normal` internally and supports scalar/vector `lowerbound` plus `StartSet`.
+- Added R-golden tests based on `man/aisp.Rd` examples (`acl` Communality subset):
+  - default `aisp(Communality)`
+  - `aisp(..., StartSet = c(1,2))`
+  - `aisp(..., lowerbound = seq(0, .55, .05))`
+- Current parity status: assignment matrices match R exactly for these tested examples.
+- Deferred branches (explicit `NotImplementedError`): `search='ga'`, `search='extended'`, and `level.two.var` execution path in `aisp`.
