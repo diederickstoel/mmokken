@@ -1,0 +1,23 @@
+citHeader("To cite mokken in publications use:")
+
+bibentry(bibtype = "Article",
+  title        = "Mokken Scale Analysis in {R}",
+  author       = person(c("L.", "Andries"), "Van der Ark"),
+  journal      = "Journal of Statistical Software",
+  year         = "2007",
+  volume       = "20",
+  number       = "11",
+  pages        = "1--19",
+  doi          = "10.18637/jss.v020.i11"
+)
+
+bibentry(bibtype = "Article",
+  title        = "New Developments in Mokken Scale Analysis in {R}",
+  author       = person(c("L.", "Andries"), "Van der Ark"),
+  journal      = "Journal of Statistical Software",
+  year         = "2012",
+  volume       = "48",
+  number       = "5",
+  pages        = "1--27",
+  doi          = "10.18637/jss.v048.i05"
+)
