@@ -43,6 +43,29 @@ TYPE=TEST analysis of all 17 items as a single scale).
 | Item16 | avoid nose breathing | 0.15 | 0.1460 | 0.1460 | -0.0000 | -0.0040 |
 | Item17 | try to adapt to situation | 0.05 | 0.0508 | 0.0508 | +0.0000 | +0.0008 |
 
+## GA AISP partition comparison
+
+Both implementations run the AISP genetic-algorithm search with
+`lowerbound=0.3, alpha=0.05, popsize=20, maxgens=500` for 5 seeds.
+GA is stochastic and R / numpy use different RNGs, so element-wise
+equivalence is impossible. We report **item-pair agreement**: the
+fraction of item pairs where both implementations agree on
+*same-scale* vs *different-scale* (chance ≈ 0.5 for two scales,
+1.0 = identical partition up to relabeling).
+
+| Seed | Py scales | R scales | Largest scale Py | Largest scale R | Pair-agreement |
+|---|---|---|---|---|---|
+| 1 | 4 | 3 | 8 | 8 | 0.963 |
+| 2 | 2 | 3 | 8 | 8 | 0.801 |
+| 7 | 3 | 3 | 8 | 8 | 0.941 |
+| 13 | 2 | 3 | 8 | 8 | 0.801 |
+| 42 | 2 | 2 | 8 | 8 | 0.868 |
+
+Mean pair-agreement across 5 seeds: **0.875** (min 0.801, max 0.963).
+Pair agreement of 1.000 means R and Python found identical scale
+structures (up to label permutation); chance level for two-scale
+partitions is ≈0.500.
+
 ## Interpretation
 
 * Python ↔ R agree to within numerical noise (typical |Δ| < 1e-9) on

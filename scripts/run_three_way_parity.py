@@ -110,6 +110,80 @@ def find_rscript() -> str | None:
     return shutil.which("Rscript")
 
 
+GA_SEEDS = (1, 2, 7, 13, 42)
+
+
+def pair_agreement(part_a: np.ndarray, part_b: np.ndarray) -> float:
+    """Rand-index-style item-pair agreement, robust to label permutation.
+
+    For each pair of items, counts the agreement on "same scale" vs
+    "different scale" between two partitions. Returns the fraction of
+    pairs that agree (1.0 = identical partition up to relabeling,
+    chance level ≈ 0.5 for two scales).
+    """
+    n = part_a.size
+    if n != part_b.size:
+        raise ValueError("Partitions must have the same length")
+    agree = 0
+    total = 0
+    for i in range(n):
+        for j in range(i + 1, n):
+            same_a = part_a[i] == part_a[j]
+            same_b = part_b[i] == part_b[j]
+            agree += int(same_a == same_b)
+            total += 1
+    return agree / total if total else 0.0
+
+
+def run_python_ga(items: np.ndarray, seeds=GA_SEEDS) -> list[np.ndarray]:
+    from mmokken.search.ga import search_ga
+
+    parts = []
+    for s in seeds:
+        out = search_ga(
+            items, lowerbound=0.3, alpha=0.05, popsize=20, maxgens=500, random_state=int(s)
+        )
+        parts.append(out.astype(int))
+    return parts
+
+
+def run_r_ga(items: np.ndarray, rscript: str, seeds=GA_SEEDS) -> list[np.ndarray] | None:
+    """Run R `aisp(search='ga')` for each seed and parse the returned partitions."""
+    n, j = items.shape
+    x_vec = ",".join(str(int(v)) for v in items.reshape(-1))
+    seed_str = ",".join(str(s) for s in seeds)
+    script = f"""
+.libPaths(c("C:/Users/User/R/win-library/4.4", .libPaths()))
+suppressPackageStartupMessages(library(mokken))
+X <- matrix(c({x_vec}), nrow={n}, ncol={j}, byrow=TRUE)
+seeds <- c({seed_str})
+for (s in seeds) {{
+  set.seed(s)
+  res <- suppressWarnings(aisp(X, search='ga', lowerbound=0.3, alpha=0.05, popsize=20, maxgens=500))
+  cat('R_GA|', s, '|', paste(as.numeric(res), collapse=','), '\\n', sep='')
+}}
+"""
+    with tempfile.NamedTemporaryFile("w", suffix=".R", delete=False, dir=str(REPO)) as tf:
+        tf.write(script)
+        script_path = tf.name
+    try:
+        proc = subprocess.run(
+            [rscript, script_path],
+            cwd=str(REPO),
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+    finally:
+        Path(script_path).unlink(missing_ok=True)
+    parts = []
+    for line in proc.stdout.splitlines():
+        if line.startswith("R_GA|"):
+            _, seed_s, vals = line.split("|", 2)
+            parts.append(np.array([int(float(v)) for v in vals.split(",")], dtype=int))
+    return parts if parts else None
+
+
 def run_python_analysis(items: np.ndarray) -> dict:
     """Run the mmokken analysis matching MSP 5's TYPE=TEST setup.
 
@@ -311,6 +385,18 @@ def render_table(py: dict, r: dict | None, msp: dict) -> str:
     lines.extend(
         [
             "",
+            "## GA AISP partition comparison",
+            "",
+            "Both implementations run the AISP genetic-algorithm search with",
+            "`lowerbound=0.3, alpha=0.05, popsize=20, maxgens=500` for 5 seeds.",
+            "GA is stochastic and R / numpy use different RNGs, so element-wise",
+            "equivalence is impossible. We report **item-pair agreement**: the",
+            "fraction of item pairs where both implementations agree on",
+            "*same-scale* vs *different-scale* (chance ≈ 0.5 for two scales,",
+            "1.0 = identical partition up to relabeling).",
+            "",
+            "%%GA_TABLE%%",
+            "",
             "## Interpretation",
             "",
             "* Python ↔ R agree to within numerical noise (typical |Δ| < 1e-9) on",
@@ -385,6 +471,63 @@ def main() -> int:
             print(f"R analysis failed: {err.stderr[:500]}", file=sys.stderr)
 
     md = render_table(py, r, MSP_REFERENCE)
+
+    # GA comparison (stochastic — separate flow from headline stats)
+    print("\nRunning GA comparison (5 seeds × Python + R)...")
+    py_parts = run_python_ga(ds.items)
+    print(f"  Python GA OK ({len(py_parts)} runs)")
+    r_parts = None
+    if rscript is not None:
+        try:
+            r_parts = run_r_ga(ds.items, rscript)
+            if r_parts is not None:
+                print(f"  R GA OK ({len(r_parts)} runs)")
+        except subprocess.CalledProcessError as err:
+            print(f"  R GA failed: {err.stderr[:500]}", file=sys.stderr)
+
+    ga_table_lines = [
+        "| Seed | Py scales | R scales | Largest scale Py | Largest scale R | Pair-agreement |",
+        "|---|---|---|---|---|---|",
+    ]
+    for i, seed in enumerate(GA_SEEDS):
+        py_p = py_parts[i]
+        r_p = r_parts[i] if r_parts is not None else None
+        py_n = len(set(int(v) for v in py_p if v > 0))
+        py_largest = int(np.max(np.bincount(py_p[py_p > 0]))) if (py_p > 0).any() else 0
+        if r_p is not None:
+            r_n = len(set(int(v) for v in r_p if v > 0))
+            r_largest = int(np.max(np.bincount(r_p[r_p > 0]))) if (r_p > 0).any() else 0
+            agreement = pair_agreement(py_p, r_p)
+            agreement_str = f"{agreement:.3f}"
+        else:
+            r_n = "—"
+            r_largest = "—"
+            agreement_str = "—"
+        ga_table_lines.append(
+            f"| {seed} | {py_n} | {r_n} | {py_largest} | {r_largest} | {agreement_str} |"
+        )
+
+    if r_parts is not None:
+        agreements = [pair_agreement(py_parts[i], r_parts[i]) for i in range(len(GA_SEEDS))]
+        ga_table_lines.extend(
+            [
+                "",
+                f"Mean pair-agreement across 5 seeds: **{np.mean(agreements):.3f}** "
+                f"(min {min(agreements):.3f}, max {max(agreements):.3f}).",
+                "Pair agreement of 1.000 means R and Python found identical scale",
+                "structures (up to label permutation); chance level for two-scale",
+                "partitions is ≈0.500.",
+            ]
+        )
+    else:
+        ga_table_lines.append("")
+        ga_table_lines.append(
+            "R GA values missing — could not invoke R `mokken::aisp(search='ga')`. "
+            "Re-run after installing the package."
+        )
+
+    md = md.replace("%%GA_TABLE%%", "\n".join(ga_table_lines))
+
     OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text(md, encoding="utf-8")
     print(f"\nWrote {OUT.relative_to(REPO)}")
