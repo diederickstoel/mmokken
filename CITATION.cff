@@ -1,0 +1,49 @@
+cff-version: 1.2.0
+title: "mmokken: Mokken Scale Analysis in Python"
+message: "If you use this software, please cite it using the metadata below."
+type: software
+authors:
+  - given-names: Diederick
+    family-names: Stoel
+    # orcid: "https://orcid.org/0000-0000-0000-0000"  # TODO: fill in
+    # affiliation: "TODO"
+version: 0.1.0
+date-released: "2026-05-14"
+license: GPL-3.0-or-later
+repository-code: "https://github.com/diederickstoel/mmokken"
+abstract: >-
+  mmokken is a Python implementation of Mokken Scale Analysis (Mokken,
+  1971): a non-parametric item response theory framework for ordinal
+  psychometric measurement. The package ports the unidimensional analyses,
+  automated item selection procedure (AISP) including the genetic
+  algorithm variant, and the standard diagnostic checks (manifest
+  monotonicity, restscore, P-matrix, reliability, person-fit) from the R
+  `mokken` package (Van der Ark, 2007). Numerical results are validated
+  against both the canonical R `mokken` 3.1.2 release (CRAN, 2024) and
+  the original MSPWIN 5 program (ProGAMMA, 2003).
+keywords:
+  - psychometrics
+  - mokken
+  - item response theory
+  - non-parametric
+  - scale analysis
+  - python
+references:
+  - type: book
+    authors:
+      - family-names: Mokken
+        given-names: Robert J.
+    title: "A Theory and Procedure of Scale Analysis"
+    publisher:
+      name: "Mouton / De Gruyter"
+    year: 1971
+  - type: article
+    authors:
+      - family-names: "Van der Ark"
+        given-names: L. Andries
+    title: "Mokken Scale Analysis in R"
+    journal: "Journal of Statistical Software"
+    volume: 20
+    issue: 11
+    year: 2007
+    doi: "10.18637/jss.v020.i11"

@@ -1,5 +1,10 @@
 # mmokken
 
+[![tests](https://github.com/diederickstoel/mmokken/actions/workflows/test.yml/badge.svg)](https://github.com/diederickstoel/mmokken/actions/workflows/test.yml)
+[![License: GPL-3.0-or-later](https://img.shields.io/badge/License-GPL%203.0--or--later-blue.svg)](LICENSE)
+[![Python ≥ 3.10](https://img.shields.io/badge/python-≥3.10-blue.svg)](https://www.python.org/downloads/)
+[![status](https://img.shields.io/badge/status-alpha-orange.svg)](CHANGELOG.md)
+
 **Multidimensional non-parametric measurement models in Python.**
 
 `mmokken` is the implementation track of an ongoing PhD research programme on
