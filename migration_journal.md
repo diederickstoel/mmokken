@@ -211,3 +211,36 @@ For every step include:
   - Estimator classes (`MokkenScale`, etc.) are specified in ADR 0001 but not yet implemented; functional surface remains the only working API
   - GA AISP body still raises `NotImplementedError`
   - The 5 untracked files from earlier untracked main-worktree state (`io/`, `utils/`, `report.py`, `scripts/`) are not part of this branch; if those increments are wanted they need to be re-introduced under the new layout
+
+## Entry 14
+- Date: 2026-05-14
+- Step: `check.monotonicity` port (TIER 2 priority A, function 1 of 3)
+- Files modified:
+  - `src/mmokken/diagnostics/__init__.py` (new package)
+  - `src/mmokken/diagnostics/monotonicity.py` (new — full port)
+  - `src/mmokken/__init__.py` (exports `check_monotonicity`)
+  - `tests/test_monotonicity.py` (new — 6 tests including R-golden)
+- Functions ported:
+  - `check_monotonicity` (from `R/check.monotonicity.R::check.monotonicity`) — single-level path
+  - `_default_minsize` helper (R defaults: N≥500 → N/10, N≤250 → N/3, N<150 → 50)
+  - `_build_groups` helper (R repeat-loop for rest-score grouping with tie handling)
+- Tests added:
+  - `test_check_monotonicity_returns_expected_keys_and_shapes`
+  - `test_check_monotonicity_raises_on_undersized_sample`
+  - `test_check_monotonicity_raises_when_minsize_too_high`
+  - `test_check_monotonicity_level_two_var_not_implemented`
+  - `test_check_monotonicity_no_violations_on_perfect_guttman_pattern`
+  - `test_check_monotonicity_golden_against_r_reference` (R parity on acl Communality; passes)
+  - Full suite status after increment: `43 passed, 4 skipped`
+- Edge cases preserved:
+  - Tie handling in group boundary construction (R uses `max(which(sorted.R == sorted.R[k]))` to keep tied scores in the same group)
+  - Drop of final element from group vector after the repeat-loop appends one too many
+  - Cumulative probability column layout `P(X >= 1..m-1)` in the summary matrix
+  - Strict-lower-triangle masking of the outer-difference matrix `V` before applying `minvi` threshold
+  - Z-statistic formula `2 * (sqrt((b+1)(a+1)) - sqrt(ab)) / sqrt(a + b - 1)` with NaN-safe division
+  - Total-row aggregates: sums for #vi/sum/#zsig, max for maxvi/zmax, and ratios for #vi/#ac and sum/#ac
+  - `Hi` returned alongside results comes from `coefHTiny` (matches R's `coefHTiny(X)$Hi` in the non-multilevel branch)
+- Remaining uncertainties:
+  - `level.two.var` (multilevel) branch raises `NotImplementedError` — depends on `MLcoefH` which is not yet ported
+  - R's `dimnames` (row/column labels on matrices) are not replicated; column-position semantics are the contract
+  - The "group" columns 8 and 9 of the violation matrix (R index 8, 9 — argmax row/col) use 1-based indexing to mirror R; downstream consumers should account for this when porting `summary.monotonicity.class`
