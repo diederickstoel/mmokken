@@ -54,3 +54,10 @@ docs/build/
 # Local scratch
 .tmp_*
 *.log
+
+# Research resources (literature, book drafts, own articles, data)
+# Not version-controlled — too large, mostly binary/personal
+resources/
+
+# Third-party reference software (MSP 5 installer etc.)
+msp_reference/
