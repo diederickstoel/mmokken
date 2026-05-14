@@ -305,3 +305,41 @@ For every step include:
   - R's NaN handling in `max.vi$total` etc. relies on `apply(..., max)` returning the column-wise max ignoring NA — our `np.vstack(...).max(axis=0)` ignores NaN only if we coerce them; this is currently fine because `vi_ppp/vi_pmm` arrays use `0` (from the TFpp/TFmm boolean mask × Dpp) rather than NaN for non-violations
   - Z-score arrays exposed via `results.z.Ppp[i]` keep NaN for "not significant" cells; downstream `n_z/max_z` aggregation `nan_to_num`s these to 0 before reduction (mirrors R's `nz.Ppp[is.na(nz.Ppp)] <- 0` line)
   - The unused R local `nz.Pmm` row-bind in R appears symmetric with `nz.Ppp` — we keep both lists for output but the aggregation logic was preserved
+
+## Entry 17
+- Date: 2026-05-14
+- Step: TIER 2 priority B + C — five-function batch landed together so the user can review the unidim core as a coherent slice
+- Files modified:
+  - `src/mmokken/utils/__init__.py`, `src/mmokken/utils/recode.py`, `src/mmokken/utils/twoway.py` (new utils package)
+  - `src/mmokken/diagnostics/errors.py` (new — Guttman/Oplus person-fit indices)
+  - `src/mmokken/diagnostics/reliability.py` (new — MS / alpha / lambda-2 / irc; LCRC defers to NotImplementedError)
+  - `src/mmokken/search/ga.py` (rewritten — pure-Python GA AISP body; previously a skeleton)
+  - `src/mmokken/search/aisp.py` (`search='ga'` branch wired through; `random_state` parameter added for reproducibility)
+  - `src/mmokken/diagnostics/__init__.py`, `src/mmokken/search/__init__.py`, `src/mmokken/__init__.py` (exports)
+  - `tests/test_utils.py` (10 tests), `tests/test_errors.py` (5 tests), `tests/test_reliability.py` (5 tests), `tests/test_ga.py` (6 tests)
+- Functions ported:
+  - `recode` (R/recode.R)
+  - `twoway` (R/twoway.R) — two-way imputation with normal residual noise
+  - `check_errors` (R/check.errors.R) — G+ Guttman errors + O+ rank-sum form; medCouple-adjusted upper fences (U1, U2)
+  - `check_reliability` (R/check.reliability.R) — MS with full 4-direction Type 1-4 interpolation; alpha; lambda-2; irc
+  - `search_ga` (R/search.ga.R + src/geneticAlgorithm.cpp::runGeneticAlgorithm) — pure-Python translation; helpers `_evaluate_member`, `_criterion2`, `_test_hi`, `_test_hij`, `_selection`, `_crossover`, `_mutation`, `_keep_the_best`, `_elitist`
+- Tests added:
+  - utils: 10 (4 recode + 6 twoway)
+  - errors: 5 (incl. R-golden distributional match on G+ quartiles and exact match on O+)
+  - reliability: 5 (incl. R-golden EXACT match on alpha/lambda_2/irc and atol=1e-6 on MS)
+  - ga: 6 (smoke, single-scale recovery, two-scale recovery, seed determinism, aisp wiring, level_two_var NotImplementedError)
+  - Full suite status after increment: `78 passed, 4 skipped`
+- Edge cases preserved:
+  - `recode`: NaN entries left untouched; default value range derived from `nanmin..nanmax`
+  - `twoway`: rejects rows/columns that are entirely missing; rejects negative or non-integer observed cells; emits warning + returns input when no missing values present
+  - `check.errors`: med-couple uses the Brys-Hubert-Struyf sign tie-break for entries where xp == xn; G+ with tied ISRF ranks runs 1000 jitter replications (seeded numpy Generator(1)) and averages — R uses set.seed(1) with its own RNG, so the distribution agrees but element-wise drift is expected (test compares quartiles within ±1)
+  - `check.reliability` MS: 4-direction interpolation with 8 candidate estimates (E17a-d, E21a-d); clipping to lower-bound P*P and upper-bound min(P_i, P_j); within-item kronecker(-1) NaN mask preserved
+  - `search.ga`: random tie-break in `_test_hij` mirrors R's `unif_rand() < 0.5` choice; mutation draws from `1..(nscales+1)` and retries while equal to current label; elite slot tracked explicitly through `_keep_the_best`/`_elitist`; `random_state` parameter (int or numpy Generator) is the only deviation from the R signature (R uses global RNG state which cannot be bridged)
+- Architectural notes:
+  - GA implementation is the headline deliverable for the user's review: ~430 lines of Python, faithful to the C++ algorithm structure (each helper maps 1:1 to a C++ function). The fitness function `n_item^(-(k+1)) * NUMITEMS[order[k]]` is preserved verbatim.
+  - `search='extended'` remains a NotImplementedError stub; `level_two_var` for GA remains a NotImplementedError stub
+  - LCRC branch of `check.reliability` requires poLCA (R) — explicitly deferred
+- Remaining uncertainties:
+  - R's GA is non-deterministic by language design (uses R's global RNG state); we cannot demonstrate bit-for-bit equivalence. The GA is validated through behavioural tests (recovery of known scale structures) and seed-reproducibility within Python. A future improvement would be to add a bootstrap-based distributional parity test against R when both runners are seeded consistently — out of scope for this entry.
+  - The `_test_hij` recursive call when an item is dropped restarts the pairwise check from i=0 of the current scale; this mirrors the C++ behaviour where the inner loops are restarted via the outer `for(i=0; ...)` loop after items are shifted, but is implemented as tail-recursion for clarity.
+  - MS reliability matches R to atol=1e-6; small drift can occur when many item-steps share identical popularity (P1 ordering of ties differs between R `order()` and numpy `argsort(kind='mergesort')` only by index labels of tied groups, not numerically — but downstream interpolation can pick different "neighbour" cells).

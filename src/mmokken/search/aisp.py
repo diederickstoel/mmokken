@@ -13,6 +13,7 @@ import numpy as np
 from mmokken.validation import check_data
 from mmokken.core.scalability import coefHTiny
 
+from .ga import search_ga
 from .normal import search_normal
 
 
@@ -30,6 +31,7 @@ def aisp(
     type_z="Z",
     test_Hi=False,
     level_two_var=None,
+    random_state=None,
 ):
     """Port of R/aisp.R::aisp (normal search path)."""
     x = check_data(X)
@@ -82,7 +84,25 @@ def aisp(
         raise ValueError("maxgens is nonpositive")
 
     if search == "ga":
-        raise NotImplementedError("aisp(search='ga') is not yet ported.")
+        if level_two_var is not None:
+            raise NotImplementedError(
+                "aisp(search='ga', level_two_var=...) is not yet ported."
+            )
+        output_cols = []
+        for lb in lb_vec:
+            assignment = search_ga(
+                x,
+                lowerbound=float(lb),
+                alpha=float(alpha),
+                popsize=int(popsize),
+                maxgens=int(maxgens),
+                pxover=float(pxover),
+                pmutation=float(pmutation),
+                random_state=random_state,
+                verbose=verbose,
+            )
+            output_cols.append(assignment.reshape(-1, 1).astype(float))
+        return np.column_stack(output_cols) if output_cols else np.zeros((x.shape[1], 0))
     if search == "extended":
         raise NotImplementedError("aisp(search='extended') is not yet ported.")
 
