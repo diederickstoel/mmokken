@@ -275,3 +275,33 @@ For every step include:
 - Remaining uncertainties:
   - The commented-out alternative `compute.violations` and t-test branch from the R source are not ported (they're commented out in R too); the current statistic is the active R implementation
   - Pair ordering in output `results` is row-major over the upper triangle (pair 0: items 0-1, pair 1: items 0-2, ..., pair J-2: items J-2 — J-1), which matches R's `for i in 1:(J-1) for j in (i+1):J` loop order
+
+## Entry 16
+- Date: 2026-05-14
+- Step: `check.pmatrix` port (TIER 2 priority A, function 3 of 3)
+- Files modified:
+  - `src/mmokken/diagnostics/pmatrix.py` (new — full port)
+  - `src/mmokken/diagnostics/__init__.py` (exports `check_pmatrix`)
+  - `src/mmokken/__init__.py` (top-level export)
+  - `tests/test_pmatrix.py` (new — 4 tests including R-golden)
+- Functions ported:
+  - `check_pmatrix` (from `R/check.pmatrix.R::check.pmatrix`)
+  - `_compute_pmatrix` helper (covers `compute.Ppp` and `compute.Pmm`; the `plus` flag toggles the indicator direction)
+  - `_scores_to_steps` helper (R `Scores2Steps`)
+  - `_z_block` helper (the conditional McNemar-like Z computation for each item-step row)
+- Tests added:
+  - `test_check_pmatrix_returns_expected_keys_and_shapes`
+  - `test_check_pmatrix_within_item_blocks_are_nan_in_ppp`
+  - `test_check_pmatrix_no_violations_on_perfect_guttman`
+  - `test_check_pmatrix_golden_against_r_reference` (R parity on acl Communality; passes)
+  - Full suite status after increment: `52 passed, 4 skipped`
+- Edge cases preserved:
+  - Within-item diagonal blocks of Ppp/Pmm masked to NaN via the `kronecker(diag(J), -1 block)` trick (translated as block-additive correction + `where(P < -0.5, NaN)`)
+  - P1 ordering uses stable mergesort so identical-popularity item-steps preserve their original order (R's `order(P1)` is stable)
+  - Z-score branches use the `pmin(...)` lower count with `n[n<1] <- .5` floor, the `B = ((2k+1-n)^2 - 10n)/(12n)` correction, and the `abs(sqrt(2k+2+B) - sqrt(2n-2k+B))` form
+  - Z is multiplied by `sign(vi)` so only entries flagged as violations contribute; entries below `qnorm(.95) = 1.6449` are set to NaN
+  - When the conditioning subsample has < 2 respondents the Z block is filled with NaN (mirroring R's `if (sum(sample11) < 2) Z <- matrix(0,...)` behaviour, except we set NaN to keep the "not-flagged" semantics consistent with downstream `sign`/`max` aggregations after `nan_to_num` to 0)
+- Remaining uncertainties:
+  - R's NaN handling in `max.vi$total` etc. relies on `apply(..., max)` returning the column-wise max ignoring NA — our `np.vstack(...).max(axis=0)` ignores NaN only if we coerce them; this is currently fine because `vi_ppp/vi_pmm` arrays use `0` (from the TFpp/TFmm boolean mask × Dpp) rather than NaN for non-violations
+  - Z-score arrays exposed via `results.z.Ppp[i]` keep NaN for "not significant" cells; downstream `n_z/max_z` aggregation `nan_to_num`s these to 0 before reduction (mirrors R's `nz.Ppp[is.na(nz.Ppp)] <- 0` line)
+  - The unused R local `nz.Pmm` row-bind in R appears symmetric with `nz.Ppp` — we keep both lists for output but the aggregation logic was preserved

@@ -14,6 +14,7 @@ from __future__ import annotations
 from .core.scalability import coefH, coefHTiny
 from .core.zscores import coefZ
 from .diagnostics.monotonicity import check_monotonicity
+from .diagnostics.pmatrix import check_pmatrix
 from .diagnostics.restscore import check_restscore
 from .search.aisp import aisp
 from .search.normal import search_normal
@@ -24,6 +25,7 @@ __all__ = [
     "check_data",
     "check_ml_data",
     "check_monotonicity",
+    "check_pmatrix",
     "check_restscore",
     "coefH",
     "coefHTiny",
