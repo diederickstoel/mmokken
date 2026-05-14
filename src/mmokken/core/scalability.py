@@ -1,7 +1,8 @@
-"""Scalability coefficient helpers for the Mokken Python port.
+"""Scalability coefficient helpers for the mmokken package.
 
-Original R source:
+Original R sources:
 - r_reference/mokken_3.1.2/mokken/R/coefH.R::coefH
+- r_reference/mokken_3.1.2/mokken/R/internalFunctions.R::coefHTiny
 """
 
 from __future__ import annotations
@@ -10,11 +11,28 @@ import warnings
 
 import numpy as np
 
-from mokken.validation import check_data
-from mokken.scalability import coefHTiny
+from mmokken.validation import check_data
 
 from .transforms import complete_observed_frequencies, dphi, phi
 from .weights import allPatterns, weights
+
+
+def coefHTiny(X):
+    """Fast Loevinger H coefficients without standard errors.
+
+    Original R source:
+    - r_reference/mokken_3.1.2/mokken/R/internalFunctions.R::coefHTiny
+    """
+    X = np.asarray(X)
+    S = np.cov(X, rowvar=False)
+    X_sorted = np.sort(X, axis=0)
+    Smax = np.cov(X_sorted, rowvar=False)
+    Hij = S / Smax
+    np.fill_diagonal(S, 0)
+    np.fill_diagonal(Smax, 0)
+    Hi = S.sum(axis=1) / Smax.sum(axis=1)
+    H = S.sum() / Smax.sum()
+    return {"Hij": Hij, "Hi": Hi, "H": H}
 
 
 def coefH(

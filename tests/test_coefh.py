@@ -5,8 +5,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from mokken.scalability import coefHTiny
-from mokken_py.core.scalability import coefH
+from mmokken.core.scalability import coefH, coefHTiny
 
 
 def test_coefh_fast_path_matches_coefhtiny():

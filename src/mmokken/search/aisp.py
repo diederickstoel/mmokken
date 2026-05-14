@@ -10,8 +10,8 @@ import warnings
 
 import numpy as np
 
-from mokken.validation import check_data
-from mokken.scalability import coefHTiny
+from mmokken.validation import check_data
+from mmokken.core.scalability import coefHTiny
 
 from .normal import search_normal
 

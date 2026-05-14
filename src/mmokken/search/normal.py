@@ -11,8 +11,8 @@ from statistics import NormalDist
 
 import numpy as np
 
-from mokken.scalability import coefHTiny
-from mokken_py.core.zscores import coefZ
+from mmokken.core.scalability import coefHTiny
+from mmokken.core.zscores import coefZ
 
 
 def _any_neg(x):

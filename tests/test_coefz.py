@@ -5,8 +5,8 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from mokken_py.core.scalability import coefH
-from mokken_py.core.zscores import coefZ
+from mmokken.core.scalability import coefH
+from mmokken.core.zscores import coefZ
 
 
 def test_coefz_classic_z_matches_manual_formula():

@@ -6,7 +6,7 @@ import numpy as np
 import pyreadr
 import pytest
 
-from mokken_py.search.aisp import aisp
+from mmokken.search.aisp import aisp
 
 
 def _rscript_path():

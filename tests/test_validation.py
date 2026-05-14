@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from mokken.validation import check_data, check_ml_data
+from mmokken.validation import check_data, check_ml_data
 
 
 def test_check_data_shifts_minimum_to_zero():

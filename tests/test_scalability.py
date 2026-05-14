@@ -1,6 +1,6 @@
 import numpy as np
 
-from mokken.scalability import coefHTiny
+from mmokken.core.scalability import coefHTiny
 
 
 def test_coef_htiny_small_matrix_matches_reference_values():

@@ -1,8 +1,17 @@
-"""Core statistical helpers for the Mokken Python port."""
+"""Core statistical helpers for the mmokken package."""
 
-from .weights import allPatterns, weights
-from .scalability import coefH
+from .scalability import coefH, coefHTiny
 from .transforms import complete_observed_frequencies, dphi, phi
+from .weights import allPatterns, weights
 from .zscores import coefZ
 
-__all__ = ["weights", "allPatterns", "phi", "dphi", "complete_observed_frequencies", "coefH", "coefZ"]
+__all__ = [
+    "allPatterns",
+    "coefH",
+    "coefHTiny",
+    "coefZ",
+    "complete_observed_frequencies",
+    "dphi",
+    "phi",
+    "weights",
+]

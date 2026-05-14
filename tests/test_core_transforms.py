@@ -1,6 +1,6 @@
 import numpy as np
 
-from mokken_py.core.transforms import complete_observed_frequencies, dphi, phi
+from mmokken.core.transforms import complete_observed_frequencies, dphi, phi
 
 
 def test_phi_actions_match_expected_numpy_forms():

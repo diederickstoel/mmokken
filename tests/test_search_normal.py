@@ -5,7 +5,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from mokken_py.search.normal import search_normal
+from mmokken.search.normal import search_normal
 
 
 def _synthetic_monotone_data(n=300, seed=0):

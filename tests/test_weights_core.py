@@ -6,7 +6,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from mokken_py.core.weights import allPatterns, weights
+from mmokken.core.weights import allPatterns, weights
 
 
 def _build_z(maxx):

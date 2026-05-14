@@ -170,3 +170,44 @@ For every step include:
 - Remaining uncertainties:
   - `search='ga'`, `search='extended'`, and `level.two.var` execution paths are not yet ported (explicit `NotImplementedError`).
   - Known R quirk where alpha/pxover/pmutation warnings do not actually clamp values is mirrored as warning-only behavior.
+
+## Entry 13
+- Date: 2026-05-13
+- Step: Repackaging from research scaffolding to `mmokken` distribution package (TIER 0 + TIER 1 of project review action list)
+- Files modified:
+  - `.gitignore` (new — `.env`, `.venv`, `.idea`, `__pycache__`, build/dist, sphinx build, etc.)
+  - Untracked from index: `.env`, `.idea/`, all `__pycache__/`, no longer carrying IDE/cache vermin
+  - Restructure (via `git mv`, history preserved):
+    - `mokken_py/` → `src/mmokken/`
+    - `mokken/validation.py` → `src/mmokken/validation.py`
+    - `mokken/scalability.py` (`coefHTiny`) → merged into `src/mmokken/core/scalability.py`
+    - Legacy `mokken/` directory removed
+  - Imports updated across 4 source files and 8 test files: `mokken.*` and `mokken_py.*` → `mmokken.*` and `mmokken.core.*`
+  - `src/mmokken/__init__.py` rewritten to expose public API (`aisp`, `coefH`, `coefHTiny`, `coefZ`, `search_normal`, `check_data`, `check_ml_data`) and `__version__ = "0.1.0.dev0"`
+  - `src/mmokken/core/__init__.py` adds `coefHTiny` to exports
+  - `src/mmokken/search/__init__.py` adds `search_ga` to exports
+  - `pyproject.toml` (new, hatchling backend) — name `mmokken`, Python ≥ 3.10, deps numpy/scipy/pandas, optional `[plot]`/`[test]`/`[docs]`/`[dev]`, ruff + mypy + pytest config
+  - `docs/decisions/0001-scikit-learn-estimator-api.md` (new ADR) — fixes scikit-learn estimator convention as the public API contract for v0.1+
+  - `src/mmokken/search/ga.py` (new skeleton) — pure-Python GA AISP placeholder with R/C++ source references; raises `NotImplementedError` and reserves helper stubs mirroring `geneticAlgorithm.cpp` structure
+  - `.github/workflows/test.yml` (new) — pytest matrix on 3.10/3.11/3.12 × Ubuntu/macOS/Windows, separate R-golden job with `r-lib/actions/setup-r`, advisory lint+mypy job
+  - `docs/source/` (new Sphinx skeleton) — `conf.py` (furo + napoleon + myst-parser + intersphinx), `index.rst`, `installation.md`, `quickstart.md`, `api/index.rst`, `decisions/index.rst`, `changelog.md`, `Makefile`
+  - `README.md` (rewritten) — `mmokken` framing, install/quickstart/scope/layout, links to ADR and research_proposal
+- Functions ported:
+  - None (repackaging increment; no algorithmic changes)
+- Tests added:
+  - None; existing 41 tests reused with updated imports
+  - Full suite status after increment: `37 passed, 4 skipped` (4 R-golden tests skipped when Rscript is absent — unchanged from Entry 6)
+- Edge cases preserved:
+  - All previous behavior unchanged; only import paths and packaging artifacts moved
+- Architectural decisions locked (see ADR 0001 and `docs/research_proposal.docx`):
+  - Package distribution name: `mmokken` (not `mokken`) — multidimensional framing baked into the import path from v0.1
+  - Layout: `src/mmokken/` (PEP 660 editable install validated)
+  - Public API surface: scikit-learn estimator convention added as the future-facing interface; current functional surface (`aisp`, `coefH`, …) remains exposed for R-parity
+  - GA AISP: pure-Python implementation (skeleton in place); pybind11 bridge to existing C++ is rejected (see ADR 0001 rationale section and `search/ga.py` docstring)
+  - Stoel-H scalability metric: separate publication track; intentionally NOT included in v0.1
+  - Track A tooling (LLM embedding + R_D + congruence statistics): goes into a sibling repository `mmokken-compare`, not a submodule of this package
+- Remaining uncertainties:
+  - `.env` file untracked from the index but the leaked OpenAI API key remains in git history (commit 193a383 and earlier). Revocation in the OpenAI dashboard and `git filter-repo --path .env --invert-paths` are required follow-ups, done outside this commit
+  - Estimator classes (`MokkenScale`, etc.) are specified in ADR 0001 but not yet implemented; functional surface remains the only working API
+  - GA AISP body still raises `NotImplementedError`
+  - The 5 untracked files from earlier untracked main-worktree state (`io/`, `utils/`, `report.py`, `scripts/`) are not part of this branch; if those increments are wanted they need to be re-introduced under the new layout

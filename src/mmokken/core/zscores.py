@@ -1,4 +1,4 @@
-"""Z-score helpers for the Mokken Python port.
+"""Z-score helpers for the mmokken package.
 
 Original R source:
 - r_reference/mokken_3.1.2/mokken/R/coefZ.R::coefZ
@@ -10,7 +10,7 @@ import warnings
 
 import numpy as np
 
-from mokken.validation import check_data
+from mmokken.validation import check_data
 
 from .scalability import coefH
 
