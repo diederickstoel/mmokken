@@ -79,6 +79,40 @@ def test_coefh_se_branch_returns_standard_errors():
     assert np.isscalar(out["se.H"])
 
 
+def test_coefh_se_branch_h_matches_fast_path_across_dimensions():
+    """SE-branch must reproduce the same H/Hi/Hij as coefHTiny for any J.
+
+    Regression test: an earlier version of the port silently produced
+    nonsense H values from the SE branch for J >= 3 because the underlying
+    ``weights()`` helper used numpy's row-major reshape where R uses
+    column-major (the bug was uncovered by the three-way parity exercise on
+    the MSP 5 odour-annoyance dataset; the existing SE-branch test above
+    only asserted shapes, not values).
+    """
+    rng = np.random.default_rng(0)
+    t = rng.standard_normal(400)
+    for j_count in (3, 4, 5, 8, 10, 12):
+        cols = []
+        for k in range(j_count):
+            thr = [-0.5 + 0.05 * k, 0.5 - 0.05 * k]
+            cols.append(np.digitize(t + 0.1 * rng.standard_normal(400), thr))
+        X = np.column_stack(cols).astype(float)
+        tiny = coefHTiny(X)
+        full = coefH(X, se=True, results=False)
+        assert np.isclose(tiny["H"], full["H"], atol=1e-9), (
+            f"H mismatch at J={j_count}: tiny={tiny['H']} vs se=True={full['H']}"
+        )
+        assert np.allclose(tiny["Hi"], full["Hi"], atol=1e-9), (
+            f"Hi mismatch at J={j_count}"
+        )
+        # Compare off-diagonals only: coefHTiny leaves 1.0 on the diagonal
+        # while the SE-branch leaves it at 0. Same convention as R.
+        mask = ~np.eye(j_count, dtype=bool)
+        assert np.allclose(tiny["Hij"][mask], full["Hij"][mask], atol=1e-9), (
+            f"Hij off-diagonal mismatch at J={j_count}"
+        )
+
+
 @pytest.mark.skipif(shutil.which("Rscript") is None, reason="Rscript not available for golden comparison")
 def test_coefh_golden_against_r_fast_path():
     repo = Path(__file__).resolve().parents[1]

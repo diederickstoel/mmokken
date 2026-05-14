@@ -185,9 +185,14 @@ def coefH(
     G4 = dphi(A4, g3, G3, "log")
     G5ij = dphi(A5, g4, G4, "exp")
 
+    # Fill the lower triangle in the same order as `pair_order` and as R's
+    # `Hij[lower.tri(Hij)] <- g5` (column-major fill of the strict lower
+    # triangle). numpy's default `np.tril_indices` returns row-major order,
+    # which silently scrambled the pair-to-cell mapping for J >= 4.
     Hij = np.zeros((J, J), dtype=float)
-    tri = np.tril_indices(J, -1)
-    Hij[tri] = g5
+    row_idx = np.array([p[1] for p in pair_order])
+    col_idx = np.array([p[0] for p in pair_order])
+    Hij[row_idx, col_idx] = g5
     Hij = Hij + Hij.T
 
     if P > 1:
@@ -247,8 +252,10 @@ def coefH(
     if se:
         nvec = counts.astype(float)
         acm_hij = G5ij @ (G5ij.T * nvec[:, None])
+        # Same pair-order column-major fill as Hij above; see the comment
+        # at the Hij assignment for the rationale.
         se_hij = np.zeros((J, J), dtype=float)
-        se_hij[np.tril_indices(J, -1)] = np.sqrt(np.diag(acm_hij))
+        se_hij[row_idx, col_idx] = np.sqrt(np.diag(acm_hij))
         se_hij = se_hij + se_hij.T
 
         acm_hi = G5i @ (G5i.T * nvec[:, None])

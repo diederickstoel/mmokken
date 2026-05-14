@@ -10,11 +10,19 @@ from mmokken.core.weights import allPatterns, weights
 
 
 def _build_z(maxx):
-    pats = allPatterns(2, maxx + 1)
-    y = np.tile(pats.reshape(1, -1), (maxx, 1))
+    """Test-local reproduction of the corrected `_build_z` (see weights.py).
+
+    Builds the (g², 2·maxx) item-step indicator matrix mirroring R's
+    column-major-flatten-then-row-major-reshape convention.
+    """
+    g = maxx + 1
+    pats = allPatterns(2, g)
+    pats_flat = pats.flatten(order="F")
+    y = np.tile(pats_flat, (maxx, 1))
     row = np.repeat(np.arange(1, maxx + 1), y.shape[1]).reshape(maxx, -1)
     z = np.where(y < row, 0.0, 1.0)
-    return z.reshape(-1, maxx * 2, order="C")
+    flat = z.flatten(order="F")
+    return flat.reshape(g * g, 2 * maxx, order="C")
 
 
 def _score_weights_for_order(order_1based, maxx):
@@ -115,7 +123,9 @@ def test_weights_constrained_itemstep_order_is_applied():
     # Constrained ordering (no ties): rank of flattened matrix [4,2,3,1].
     itemstep_order = np.array([[4, 2], [3, 1]], dtype=float)
     out = weights(x, maxx=maxx, **{"itemstep.order": itemstep_order})
-    expected = _score_weights_for_order([4, 2, 3, 1], maxx=maxx)
+    # Column-major flatten of [[4, 2], [3, 1]] is [4, 3, 2, 1], so the
+    # corresponding 1-based order vector after ranking is also [4, 3, 2, 1].
+    expected = _score_weights_for_order([4, 3, 2, 1], maxx=maxx)
     assert np.allclose(out, expected)
 
 

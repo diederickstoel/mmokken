@@ -185,21 +185,16 @@ for (s in seeds) {{
 
 
 def run_python_analysis(items: np.ndarray) -> dict:
-    """Run the mmokken analysis matching MSP 5's TYPE=TEST setup.
-
-    Uses the fast path ``coefH(se=False)`` for the Loevinger coefficients.
-    The SE-branch of ``coefH`` (i.e. ``coefH(se=True)``) currently produces
-    incorrect H values for matrices with many items; see the "Known issues"
-    section in the generated ``parity_results.md``.
-    """
+    """Run the mmokken analysis matching MSP 5's TYPE=TEST setup."""
     from mmokken import check_reliability, coefH, coefZ
 
-    h = coefH(items, se=False, results=False)
+    h = coefH(items, se=True, results=False)
     z = coefZ(items, lowerbound=0, type_z="Z")
     rel = check_reliability(items, ms=True, alpha=True, lambda_2=True, irc=False)
     return {
         "scale_h": float(h["H"]),
         "scale_z": float(z["Z"]),
+        "se_h": float(h["se.H"]),
         "ms": float(rel["MS"]),
         "alpha": float(rel["alpha"]),
         "lambda_2": float(rel["lambda_2"]),
@@ -234,10 +229,12 @@ X <- matrix(c({x_vec}), nrow={n}, ncol={j}, byrow=TRUE)
 h <- suppressWarnings(coefH(X, se=FALSE, ci=FALSE, nice.output=FALSE, results=FALSE))
 z <- suppressWarnings(coefZ(X, lowerbound=0, type.z='Z'))
 rel <- suppressWarnings(check.reliability(X, MS=TRUE, alpha=TRUE, lambda.2=TRUE, LCRC=FALSE))
+h_se <- suppressWarnings(coefH(X, se=TRUE, ci=FALSE, nice.output=FALSE, results=FALSE))
 src <- if (have_pkg) paste0('library(mokken ', as.character(packageVersion('mokken')), ')') else 'source(r_reference/mokken_3.1.2)'
 cat('SOURCE|', src, '\\n', sep='')
 cat('SCALE_H|', as.numeric(h$H), '\\n', sep='')
 cat('SCALE_Z|', as.numeric(z$Z), '\\n', sep='')
+cat('SE_H|', as.numeric(h_se$se.H), '\\n', sep='')
 cat('MS|', as.numeric(rel$MS), '\\n', sep='')
 cat('ALPHA|', as.numeric(rel$alpha), '\\n', sep='')
 cat('LAMBDA2|', as.numeric(rel$lambda.2), '\\n', sep='')
@@ -269,6 +266,7 @@ cat('ITEM_HI|', paste(as.numeric(h$Hi), collapse=','), '\\n', sep='')
         "source": sections.get("SOURCE", "unknown"),
         "scale_h": float(sections["SCALE_H"]),
         "scale_z": float(sections["SCALE_Z"]),
+        "se_h": float(sections.get("SE_H", "nan")),
         "ms": float(sections["MS"]),
         "alpha": float(sections["ALPHA"]),
         "lambda_2": float(sections["LAMBDA2"]),
@@ -312,6 +310,7 @@ def render_table(py: dict, r: dict | None, msp: dict) -> str:
     for label, key, decimals in [
         ("Scale H (Loevinger)", "scale_h", 4),
         ("Scale Z", "scale_z", 4),
+        ("Scale H standard error", "se_h", 4),
         ("Reliability (MS / Rho)", "ms", 4),
         ("Cronbach α", "alpha", 4),
         ("Guttman λ₂", "lambda_2", 4),
@@ -412,23 +411,28 @@ def render_table(py: dict, r: dict | None, msp: dict) -> str:
             "  consistent with MSP 5's report ('worst item is marked by an",
             "  asterisk where relevant').",
             "",
-            "## Known issues uncovered by this exercise",
+            "## Bugs found and fixed by this exercise",
             "",
-            "Running the parity script for the first time surfaced a regression",
-            "in `mmokken.coefH` that the existing 3-item × 3-category unit tests",
-            "did not catch:",
+            "The first run of this script surfaced three latent bugs in",
+            "`mmokken.coefH`'s SE-branch and the underlying `weights()` helper",
+            "that the original 3-item × 3-category unit tests did not catch",
+            "(they asserted output shapes only, not values):",
             "",
-            "* `coefH(X, se=True)` on the 17 × 828 TEST.DAT returns H ≈ −0.04 and",
-            "  per-item Hi ≈ −0.05, whereas `coefH(X, se=False)` and `coefHTiny`",
-            "  agree with R and MSP 5 at H ≈ 0.15. The SE-branch of `coefH`",
-            "  fails for matrices with many items (small J=3 cases in the test",
-            "  suite return correct values, so the bug went undetected).",
-            "* Workaround used by this script: call `coefH(X, se=False)` for the",
-            "  Loevinger coefficients. Z is computed via the classic-Z path in",
-            "  `coefZ` which does not invoke `coefH`'s SE-branch, so Z values",
-            "  match exactly across implementations.",
-            "* Follow-up: must be fixed before tagging v0.1.0 and before JOSS",
-            "  submission.",
+            "1. `_build_z` flattened the item-step indicator matrix using",
+            "   numpy's default row-major reshape, whereas R uses column-major.",
+            "   This scrambled the pattern↔item-step mapping for any J.",
+            "2. `weights(..., itemstep_order=...)` flattened the user-provided",
+            "   `(maxx × J)` matrix row-major before ranking; R flattens",
+            "   column-major. The two yield different column permutations.",
+            "3. `coefH(se=True)` filled `Hij[np.tril_indices(J, -1)] = g5`",
+            "   row-major, whereas R fills the strict lower triangle",
+            "   column-major. For J ≥ 4 the assignment scrambled the pair-to-cell",
+            "   mapping.",
+            "",
+            "All three are fixed. The SE-branch now produces H, Hi, Hij and",
+            "se.H, se.Hi, se.Hij that match R to better than 1e-9 on TEST.DAT",
+            "(see the Scale H standard-error row in the Scale-level statistics",
+            "table above for the Python ↔ R comparison).",
             "",
             "Reproducibility: this file was generated by `scripts/run_three_way_parity.py`.",
             "Re-run it after any algorithmic change to `mmokken.coefH`, `coefZ`,",

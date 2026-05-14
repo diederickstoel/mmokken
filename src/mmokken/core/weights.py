@@ -37,12 +37,30 @@ def _perm(v):
 
 
 def _build_z(maxx):
-    pats = allPatterns(2, maxx + 1)
-    y = np.tile(pats.reshape(1, -1), (maxx, 1))
-    row = np.repeat(np.arange(1, maxx + 1), y.shape[1]).reshape(maxx, -1)
-    z = np.where(y < row, 0.0, 1.0)
-    z = z.reshape(-1, maxx * 2, order="C")
-    return z
+    """Build the (g², 2·maxx) item-step indicator matrix used by `weights`.
+
+    Each row corresponds to a 2-item response pattern (a column of
+    ``allPatterns(2, g)``). Each column corresponds to one item-step, in the
+    order (item0 ≥ 1, item0 ≥ 2, …, item0 ≥ maxx, item1 ≥ 1, …, item1 ≥ maxx).
+
+    R mirrors this layout via column-major matrix coercion; the original
+    Python port used numpy's default row-major reshape, which silently
+    scrambled the pattern↔item-step mapping. The bug surfaced when
+    ``coefH(se=True)`` produced incorrect H values for any J > 0 (see
+    migration_journal entry where the SE-branch parity was investigated).
+    """
+    g = maxx + 1
+    pats = allPatterns(2, g)  # shape (2, g²)
+    # Mirror R's `matrix(allPatterns(2, g), nrow=1)`: flatten column-major
+    # so position 2k+j corresponds to pattern k, item j.
+    pats_flat = pats.flatten(order="F")
+    y = np.tile(pats_flat, (maxx, 1))
+    row_idx = np.repeat(np.arange(1, maxx + 1), y.shape[1]).reshape(maxx, -1)
+    z_init = np.where(y < row_idx, 0.0, 1.0)
+    # R's reshape: column-major flatten of z_init, then fill row-major into
+    # shape (g², 2·maxx).
+    flat = z_init.flatten(order="F")
+    return flat.reshape(g * g, 2 * maxx, order="C")
 
 
 def _weights_from_order(ords_1based, maxx):
@@ -155,7 +173,10 @@ def weights(X, maxx=None, minx=0, itemstep_order=None, **kwargs):
         if itemstep_order is None:
             ords = y_names
         else:
-            flat = np.asarray(itemstep_order).reshape(-1)
+            # R flattens the (maxx × J) `itemstep.order` matrix column-major
+            # before ranking. Using numpy's default row-major reshape silently
+            # produced the wrong column permutation for J ≥ 2.
+            flat = np.asarray(itemstep_order).flatten(order="F")
             # R's rank default: ties.method = "average".
             ords = _rank_average_1based(flat)
         wr = _weights_from_order(ords, maxx)
