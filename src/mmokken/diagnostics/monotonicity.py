@@ -14,41 +14,7 @@ import numpy as np
 
 from ..core.scalability import coefHTiny
 from ..validation import check_data
-
-
-def _default_minsize(n: int) -> int:
-    """Mirror R defaults: N>=500 -> N/10, N<=250 -> N/3, N<150 -> 50.
-
-    Source: R/check.monotonicity.R lines 8-10.
-    """
-    if n < 150:
-        return 50
-    if n <= 250:
-        return n // 3
-    if n >= 500:
-        return n // 10
-    return n // 5
-
-
-def _build_groups(sorted_rest: np.ndarray, minsize: int, n: int) -> list[int]:
-    """Build cumulative right-edge positions for rest-score groups.
-
-    Mirrors the R `repeat` loop in check.monotonicity. Returns a list of
-    1-based right-edge positions (counts of respondents in groups 1..L-1).
-
-    Source: R/check.monotonicity.R lines 34-40.
-    """
-    # 1-based logic transposed: group = [last 1-based idx where sorted == sorted[minsize-1]]
-    target = sorted_rest[minsize - 1]
-    g0 = int(np.max(np.where(sorted_rest == target)[0])) + 1  # 1-based
-    group = [g0]
-    while n - max(group) >= minsize:
-        target = sorted_rest[minsize + max(group) - 1]
-        g_next = int(np.max(np.where(sorted_rest == target)[0])) + 1
-        group.append(g_next)
-    # R: group <- group[-length(group)]  -> drop the last element after break
-    group.pop()
-    return group
+from ._utils import build_groups, default_minsize
 
 
 def check_monotonicity(
@@ -92,7 +58,7 @@ def check_monotonicity(
     m = int(np.max(x)) + 1
 
     if minsize is None:
-        minsize = _default_minsize(n)
+        minsize = default_minsize(n)
     if n < minsize:
         raise ValueError("Sample size less than Minsize")
     if minsize > n / 2:
@@ -110,7 +76,7 @@ def check_monotonicity(
 
     for j in range(j_count):
         sorted_r = np.sort(rest[:, j])
-        group_edges_1b = _build_groups(sorted_r, minsize, n)
+        group_edges_1b = build_groups(sorted_r, minsize, n)
 
         # Sizes per group: diffs of [0, *edges, N]
         edges_with_bounds = [0, *group_edges_1b, n]

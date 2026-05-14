@@ -244,3 +244,34 @@ For every step include:
   - `level.two.var` (multilevel) branch raises `NotImplementedError` — depends on `MLcoefH` which is not yet ported
   - R's `dimnames` (row/column labels on matrices) are not replicated; column-position semantics are the contract
   - The "group" columns 8 and 9 of the violation matrix (R index 8, 9 — argmax row/col) use 1-based indexing to mirror R; downstream consumers should account for this when porting `summary.monotonicity.class`
+
+## Entry 15
+- Date: 2026-05-14
+- Step: `check.restscore` port (TIER 2 priority A, function 2 of 3)
+- Files modified:
+  - `src/mmokken/diagnostics/_utils.py` (new — shared helpers `default_minsize` and `build_groups`, refactored out of `monotonicity.py`)
+  - `src/mmokken/diagnostics/monotonicity.py` (uses shared helpers)
+  - `src/mmokken/diagnostics/restscore.py` (new — full port)
+  - `src/mmokken/diagnostics/__init__.py` (exports `check_restscore`)
+  - `src/mmokken/__init__.py` (top-level export)
+  - `tests/test_restscore.py` (new — 5 tests including R-golden)
+- Functions ported:
+  - `check_restscore` (from `R/check.restscore.R::check.restscore`)
+  - `_restscore_z` helper for the pairwise restscore Z statistic (R lines 92-100)
+- Tests added:
+  - `test_check_restscore_returns_expected_shapes`
+  - `test_check_restscore_raises_on_undersized_sample`
+  - `test_check_restscore_raises_on_too_few_items`
+  - `test_check_restscore_zero_violations_on_perfect_guttman`
+  - `test_check_restscore_golden_against_r_reference` (R parity on acl Communality; passes)
+  - Full suite status after increment: `48 passed, 4 skipped`
+- Edge cases preserved:
+  - Rest-score base for pair (i, j): start from row-sum of all OTHER items, subtract X[:, i] everywhere, zero column i (mirrors R's `R <- X %*% (1-I) - X[,i]; R[,i] <- 0`)
+  - Direction of difference `d` switches based on which item has the higher weighted-mean cumulative probability (R lines 85-86)
+  - Z formula `abs(sqrt(2*k+2+b) - sqrt(2*n-2*k+b))` with `b = ((2k+1-n)^2 - 10n)/(12n)` and the `length(matrix)/J` row-count idiom translated to `np.sum(mask)`
+  - Pairwise count uses `Xgg[, i] >= g & Xgg[, j] < h` and the diagonal opposite (matches R)
+  - z-threshold for "#zsig" is `qnorm(.95) = 1.6449`
+  - Total-row aggregation logic differs from monotonicity: `#ac/#vi/sum/#zsig` summed, `maxvi/zmax` maxed, ratios recomputed; when `rvm == 2` the single non-total row is copied verbatim into the Total row (mirroring R's else branch)
+- Remaining uncertainties:
+  - The commented-out alternative `compute.violations` and t-test branch from the R source are not ported (they're commented out in R too); the current statistic is the active R implementation
+  - Pair ordering in output `results` is row-major over the upper triangle (pair 0: items 0-1, pair 1: items 0-2, ..., pair J-2: items J-2 — J-1), which matches R's `for i in 1:(J-1) for j in (i+1):J` loop order
