@@ -135,19 +135,33 @@ def run_python_analysis(items: np.ndarray) -> dict:
 
 
 def run_r_analysis(items: np.ndarray, rscript: str) -> dict | None:
-    """Run R mokken on the same matrix and parse stdout."""
+    """Run R mokken on the same matrix and parse stdout.
+
+    Prefers the installed CRAN package (``library(mokken)``) so the
+    comparison validates against the canonical published version. Falls
+    back to ``source(r_reference/...)`` when the package is not installed
+    — the numerical results are identical, but the installed path also
+    exercises NAMESPACE/S3 dispatch.
+    """
     n, j = items.shape
     x_vec = ",".join(str(int(v)) for v in items.reshape(-1))
     script = f"""
-source('r_reference/mokken_3.1.2/mokken/R/internalFunctions.R')
-source('r_reference/mokken_3.1.2/mokken/R/MLweight.R')
-source('r_reference/mokken_3.1.2/mokken/R/coefH.R')
-source('r_reference/mokken_3.1.2/mokken/R/coefZ.R')
-source('r_reference/mokken_3.1.2/mokken/R/check.reliability.R')
+user_lib <- "C:/Users/User/R/win-library/4.4"
+if (dir.exists(user_lib)) .libPaths(c(user_lib, .libPaths()))
+have_pkg <- suppressWarnings(suppressMessages(require(mokken, quietly=TRUE)))
+if (!have_pkg) {{
+  source('r_reference/mokken_3.1.2/mokken/R/internalFunctions.R')
+  source('r_reference/mokken_3.1.2/mokken/R/MLweight.R')
+  source('r_reference/mokken_3.1.2/mokken/R/coefH.R')
+  source('r_reference/mokken_3.1.2/mokken/R/coefZ.R')
+  source('r_reference/mokken_3.1.2/mokken/R/check.reliability.R')
+}}
 X <- matrix(c({x_vec}), nrow={n}, ncol={j}, byrow=TRUE)
-h <- coefH(X, se=FALSE, ci=FALSE, nice.output=FALSE, results=FALSE)
-z <- coefZ(X, lowerbound=0, type.z='Z')
-rel <- check.reliability(X, MS=TRUE, alpha=TRUE, lambda.2=TRUE, LCRC=FALSE)
+h <- suppressWarnings(coefH(X, se=FALSE, ci=FALSE, nice.output=FALSE, results=FALSE))
+z <- suppressWarnings(coefZ(X, lowerbound=0, type.z='Z'))
+rel <- suppressWarnings(check.reliability(X, MS=TRUE, alpha=TRUE, lambda.2=TRUE, LCRC=FALSE))
+src <- if (have_pkg) paste0('library(mokken ', as.character(packageVersion('mokken')), ')') else 'source(r_reference/mokken_3.1.2)'
+cat('SOURCE|', src, '\\n', sep='')
 cat('SCALE_H|', as.numeric(h$H), '\\n', sep='')
 cat('SCALE_Z|', as.numeric(z$Z), '\\n', sep='')
 cat('MS|', as.numeric(rel$MS), '\\n', sep='')
@@ -178,6 +192,7 @@ cat('ITEM_HI|', paste(as.numeric(h$Hi), collapse=','), '\\n', sep='')
 
     item_hi_arr = np.array([float(v) for v in sections["ITEM_HI"].split(",")], dtype=float)
     return {
+        "source": sections.get("SOURCE", "unknown"),
         "scale_h": float(sections["SCALE_H"]),
         "scale_z": float(sections["SCALE_Z"]),
         "ms": float(sections["MS"]),
@@ -362,7 +377,10 @@ def main() -> int:
     else:
         try:
             r = run_r_analysis(ds.items, rscript)
-            print(f"R analysis OK (H={r['scale_h']:.4f}, Z={r['scale_z']:.4f}, MS={r['ms']:.4f})")
+            print(
+                f"R analysis OK ({r.get('source', '?')}: H={r['scale_h']:.4f}, "
+                f"Z={r['scale_z']:.4f}, MS={r['ms']:.4f})"
+            )
         except subprocess.CalledProcessError as err:
             print(f"R analysis failed: {err.stderr[:500]}", file=sys.stderr)
 
