@@ -23,7 +23,7 @@ pip install mmokken
 Editable install from a clone:
 
 ```bash
-git clone https://github.com/dstoel/mmokken
+git clone https://github.com/diederickstoel/mmokken
 cd mmokken
 pip install -e ".[dev,test,docs]"
 ```

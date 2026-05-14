@@ -58,9 +58,9 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/dstoel/mmokken"
-Repository = "https://github.com/dstoel/mmokken"
-Issues = "https://github.com/dstoel/mmokken/issues"
+Homepage = "https://github.com/diederickstoel/mmokken"
+Repository = "https://github.com/diederickstoel/mmokken"
+Issues = "https://github.com/diederickstoel/mmokken/issues"
 Documentation = "https://mmokken.readthedocs.io"
 
 [tool.hatch.build.targets.wheel]
