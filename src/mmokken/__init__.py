@@ -18,6 +18,7 @@ from .diagnostics.monotonicity import check_monotonicity
 from .diagnostics.pmatrix import check_pmatrix
 from .diagnostics.reliability import check_reliability
 from .diagnostics.restscore import check_restscore
+from .io.msp_loader import MspDataset, load_msp_dataset
 from .search.aisp import aisp
 from .search.normal import search_normal
 from .utils.recode import recode
@@ -25,6 +26,7 @@ from .utils.twoway import twoway
 from .validation import check_data, check_ml_data
 
 __all__ = [
+    "MspDataset",
     "aisp",
     "check_data",
     "check_errors",
@@ -36,6 +38,7 @@ __all__ = [
     "coefH",
     "coefHTiny",
     "coefZ",
+    "load_msp_dataset",
     "recode",
     "search_normal",
     "twoway",

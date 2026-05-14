@@ -343,3 +343,37 @@ For every step include:
   - R's GA is non-deterministic by language design (uses R's global RNG state); we cannot demonstrate bit-for-bit equivalence. The GA is validated through behavioural tests (recovery of known scale structures) and seed-reproducibility within Python. A future improvement would be to add a bootstrap-based distributional parity test against R when both runners are seeded consistently — out of scope for this entry.
   - The `_test_hij` recursive call when an item is dropped restarts the pairwise check from i=0 of the current scale; this mirrors the C++ behaviour where the inner loops are restarted via the outer `for(i=0; ...)` loop after items are shifted, but is implemented as tail-recursion for clarity.
   - MS reliability matches R to atol=1e-6; small drift can occur when many item-steps share identical popularity (P1 ordering of ties differs between R `order()` and numpy `argsort(kind='mergesort')` only by index labels of tied groups, not numerically — but downstream interpolation can pick different "neighbour" cells).
+
+## Entry 18
+- Date: 2026-05-14
+- Step: MSP 5 `.dat`/`.var` loader port (re-introducing Codex Entry 9 under new layout)
+- Files modified:
+  - `src/mmokken/io/__init__.py` (new package)
+  - `src/mmokken/io/msp_loader.py` (new — `load_msp_dataset` + `MspDataset` dataclass)
+  - `src/mmokken/__init__.py` (top-level exports)
+  - `tests/test_msp_loader.py` (new — 7 unit tests + 1 integration test gated on real MSP 5 install)
+- Functions ported:
+  - `load_msp_dataset(dat_path, var_path)` (originally Codex Entry 9; never committed to this branch)
+  - `MspDataset` dataclass for the loader return value
+- Tests added:
+  - `test_load_msp_dataset_detects_item_group_and_id_columns`
+  - `test_load_msp_dataset_without_grouping_variables`
+  - `test_load_msp_dataset_with_respondent_id`
+  - `test_load_msp_dataset_raises_on_column_count_mismatch`
+  - `test_load_msp_dataset_rejects_multiple_id_columns`
+  - `test_load_msp_dataset_rejects_unknown_var_type`
+  - `test_load_msp_dataset_rejects_missing_item_column`
+  - `test_load_msp_dataset_reads_real_msp5_test_data` (gated on `msp_reference/installed/TEST.DAT` — runs locally, skipped in CI because the MSP 5 install is gitignored)
+  - Full suite status after increment: `85 passed, 5 skipped`
+- Edge cases preserved:
+  - `.var` format: `type|name|label` with type ∈ {0=item, 1=grouping, 3=respondent ID}; multiple type=3 columns rejected
+  - `.dat` is free-field whitespace-delimited; trailing-blank-line tolerant; column count must match `.var`
+  - Encoding fallback chain `utf-8` → `cp1252` → `latin1` (R/Windows-1252 produced by MSP 5 / SPSS)
+  - Item matrix passes through `mmokken.validation.check_data` so downstream `aisp`/`check_*` work without further preprocessing
+  - Group block is shaped `(N, 0)` when no grouping columns exist (instead of `None`), so downstream code can stack/concatenate uniformly
+- Integration validation (out of test suite, run manually):
+  - Loaded `msp_reference/installed/TEST.DAT` (828 × 17 odour annoyance items, scores 0-3)
+  - `aisp(lowerbound=0.3, alpha=0.05)` produced 4 scales + 1 unscalable item (Item16 "avoid nose breathing"), consistent with MSP 5's recorded analysis
+- Remaining uncertainties:
+  - Round-trip: no writer (`save_msp_dataset`) implemented in this increment — only the reader
+  - Long labels are joined with `|` if the original line contains more than 3 fields; MSP 5 in practice produces exactly 3 fields per item but the `.ms*` script files extend this with score-range info that does not appear in `.var`
