@@ -61,3 +61,7 @@ resources/
 
 # Third-party reference software (MSP 5 installer etc.)
 msp_reference/
+
+# Respondent-level career-progression data (see docs/security_audit.md)
+data/CRE46-1480.dat
+r_reference/mokken_3.1.2/mokken/data/CRE46-1480.dat
